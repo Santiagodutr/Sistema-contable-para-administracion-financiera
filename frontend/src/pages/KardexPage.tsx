@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
+import { Pencil, Trash2, FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const KardexPage = () => {
   const { productos, registrarEntrada, registrarSalida, cambiarMetodo, limpiarTabla, editarMovimiento, eliminarMovimiento } = useKardexStore()
@@ -122,6 +124,88 @@ const KardexPage = () => {
 
   const totales = calcularTotales()
 
+  const exportarAExcel = () => {
+    if (!productoSeleccionado) {
+      alert('No hay datos para exportar')
+      return
+    }
+
+    // Crear libro de Excel
+    const wb = XLSX.utils.book_new()
+    
+    // Crear array de datos con encabezados personalizados
+    const data: any[][] = []
+    
+    // Fila 1: Encabezados principales
+    data.push(['Fecha', 'Detalle', 'Entradas', '', '', 'Salidas', '', '', 'Saldos', '', ''])
+    
+    // Fila 2: Subencabezados
+    data.push(['', '', 'cantidad', 'Valor Unitario', 'Valor Total', 'cantidad', 'Valor Unitario', 'Valor Total', 'cantidad', 'Valor Unitario', 'Valor Total'])
+    
+    // Agregar datos de movimientos
+    productoSeleccionado.movimientos.forEach((mov) => {
+      data.push([
+        new Date(mov.fecha).toLocaleDateString('es-PE'),
+        mov.detalle,
+        mov.tipo === 'ENTRADA' ? mov.cantidad : '',
+        mov.tipo === 'ENTRADA' ? mov.costoUnitario : '',
+        mov.tipo === 'ENTRADA' ? mov.costoTotal : '',
+        mov.tipo === 'SALIDA' ? mov.cantidad : '',
+        mov.tipo === 'SALIDA' ? mov.costoUnitario : '',
+        mov.tipo === 'SALIDA' ? mov.costoTotal : '',
+        mov.saldoCantidad,
+        mov.saldoCostoUnitario,
+        mov.saldoCostoTotal,
+      ])
+    })
+    
+    // Agregar fila de totales
+    data.push([
+      '',
+      'TOTALES',
+      totales.entradas,
+      0,
+      0,
+      totales.salidas,
+      0,
+      0,
+      totales.saldo,
+      0,
+      0,
+    ])
+
+    // Crear hoja de trabajo
+    const ws = XLSX.utils.aoa_to_sheet(data)
+
+    // Combinar celdas para encabezados principales
+    ws['!merges'] = [
+      { s: { r: 0, c: 2 }, e: { r: 0, c: 4 } }, // Entradas
+      { s: { r: 0, c: 5 }, e: { r: 0, c: 7 } }, // Salidas
+      { s: { r: 0, c: 8 }, e: { r: 0, c: 10 } }, // Saldos
+    ]
+
+    // Ajustar anchos de columna
+    ws['!cols'] = [
+      { wch: 12 }, // Fecha
+      { wch: 20 }, // Detalle
+      { wch: 12 }, // Entrada - Cantidad
+      { wch: 15 }, // Entrada - Valor Unitario
+      { wch: 15 }, // Entrada - Valor Total
+      { wch: 12 }, // Salida - Cantidad
+      { wch: 15 }, // Salida - Valor Unitario
+      { wch: 15 }, // Salida - Valor Total
+      { wch: 12 }, // Saldo - Cantidad
+      { wch: 15 }, // Saldo - Valor Unitario
+      { wch: 15 }, // Saldo - Valor Total
+    ]
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Kardex')
+
+    // Descargar archivo
+    const nombreArchivo = `Kardex_${productoSeleccionado.codigo}_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`
+    XLSX.writeFile(wb, nombreArchivo)
+  }
+
   return (
     <div className="space-y-4 p-6">
       <div className="flex justify-between items-center">
@@ -150,6 +234,15 @@ const KardexPage = () => {
               </select>
             </div>
           )}
+          
+          <Button 
+            variant="outline" 
+            onClick={exportarAExcel}
+            disabled={!productoSeleccionado || productoSeleccionado.movimientos.length === 0}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Exportar a Excel
+          </Button>
           
           <Button 
             variant="destructive" 
@@ -317,10 +410,10 @@ const KardexPage = () => {
                         ) : (
                           <div className="flex gap-1 justify-center">
                             <Button onClick={() => iniciarEdicion(mov)} size="sm" variant="ghost" className="h-6 text-xs px-2">
-                              ✎
+                              <Pencil className="h-3 w-3" />
                             </Button>
-                            <Button onClick={() => handleEliminarMovimiento(mov.id)} size="sm" variant="ghost" className="h-6 text-xs px-2 text-red-600">
-                              🗑
+                            <Button onClick={() => handleEliminarMovimiento(mov.id)} size="sm" variant="ghost" className="h-6 text-xs px-2 text-red-600 hover:text-red-700">
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         )}
