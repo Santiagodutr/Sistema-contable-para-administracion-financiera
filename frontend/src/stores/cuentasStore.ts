@@ -25,6 +25,8 @@ interface CuentasStore {
   obtenerCuenta: (codigo: string) => Cuenta | undefined
   obtenerCuentasPorTipo: (tipo: string) => Cuenta[]
   eliminarCuenta: (codigo: string) => void
+  eliminarMovimiento: (tipoCuenta: string, movimientoId: string) => void
+  editarMovimiento: (tipoCuenta: string, movimientoId: string, movimiento: Omit<Movimiento, 'id'>) => void
   calcularSaldo: (cuenta: Cuenta) => number
 }
 
@@ -48,29 +50,55 @@ export const useCuentasStore = create<CuentasStore>()(
       },
       
       registrarMovimiento: (codigo, movimiento) => {
-        set((state) => ({
-          cuentas: state.cuentas.map((cuenta) => {
-            if (cuenta.codigo === codigo) {
-              const nuevoMovimiento = {
-                ...movimiento,
-                id: `${Date.now()}-${Math.random()}`,
-                fecha: new Date(movimiento.fecha),
-              }
-              
-              return {
-                ...cuenta,
-                saldoDebito: movimiento.tipo === 'debito' 
-                  ? cuenta.saldoDebito + movimiento.monto 
-                  : cuenta.saldoDebito,
-                saldoCredito: movimiento.tipo === 'credito' 
-                  ? cuenta.saldoCredito + movimiento.monto 
-                  : cuenta.saldoCredito,
-                movimientos: [...cuenta.movimientos, nuevoMovimiento],
-              }
+        set((state) => {
+          // Buscar o crear la cuenta global del tipo
+          let cuentaExiste = state.cuentas.find(c => c.tipo === codigo)
+          
+          if (!cuentaExiste) {
+            // Crear la cuenta global si no existe
+            const nombresCuentas = {
+              '1': 'Activo',
+              '2': 'Pasivo',
+              '3': 'Patrimonio',
+              '4': 'Ingreso',
+              '5': 'Gasto',
+              '6': 'Costo',
             }
-            return cuenta
-          }),
-        }))
+            
+            cuentaExiste = {
+              codigo: codigo,
+              nombre: nombresCuentas[codigo as keyof typeof nombresCuentas],
+              tipo: codigo as '1' | '2' | '3' | '4' | '5' | '6',
+              saldoDebito: 0,
+              saldoCredito: 0,
+              movimientos: [],
+            }
+          }
+          
+          return {
+            cuentas: state.cuentas.map((cuenta) => {
+              if (cuenta.tipo === codigo) {
+                const nuevoMovimiento = {
+                  ...movimiento,
+                  id: `${Date.now()}-${Math.random()}`,
+                  fecha: new Date(movimiento.fecha),
+                }
+                
+                return {
+                  ...cuenta,
+                  saldoDebito: movimiento.tipo === 'debito' 
+                    ? cuenta.saldoDebito + movimiento.monto 
+                    : cuenta.saldoDebito,
+                  saldoCredito: movimiento.tipo === 'credito' 
+                    ? cuenta.saldoCredito + movimiento.monto 
+                    : cuenta.saldoCredito,
+                  movimientos: [...cuenta.movimientos, nuevoMovimiento],
+                }
+              }
+              return cuenta
+            }).concat(!state.cuentas.some(c => c.tipo === codigo) ? [cuentaExiste!] : [])
+          }
+        })
       },
       
       obtenerCuenta: (codigo) => {
@@ -84,6 +112,69 @@ export const useCuentasStore = create<CuentasStore>()(
       eliminarCuenta: (codigo) => {
         set((state) => ({
           cuentas: state.cuentas.filter((c) => c.codigo !== codigo),
+        }))
+      },
+      
+      eliminarMovimiento: (tipoCuenta, movimientoId) => {
+        set((state) => ({
+          cuentas: state.cuentas.map((cuenta) => {
+            if (cuenta.tipo === tipoCuenta) {
+              const movimiento = cuenta.movimientos.find(m => m.id === movimientoId)
+              if (!movimiento) return cuenta
+              
+              return {
+                ...cuenta,
+                saldoDebito: movimiento.tipo === 'debito' 
+                  ? cuenta.saldoDebito - movimiento.monto 
+                  : cuenta.saldoDebito,
+                saldoCredito: movimiento.tipo === 'credito' 
+                  ? cuenta.saldoCredito - movimiento.monto 
+                  : cuenta.saldoCredito,
+                movimientos: cuenta.movimientos.filter(m => m.id !== movimientoId),
+              }
+            }
+            return cuenta
+          }),
+        }))
+      },
+      
+      editarMovimiento: (tipoCuenta, movimientoId, nuevoMovimiento) => {
+        set((state) => ({
+          cuentas: state.cuentas.map((cuenta) => {
+            if (cuenta.tipo === tipoCuenta) {
+              const movimientoViejo = cuenta.movimientos.find(m => m.id === movimientoId)
+              if (!movimientoViejo) return cuenta
+              
+              // Revertir los valores del movimiento viejo
+              let nuevoDebito = cuenta.saldoDebito
+              let nuevoCredito = cuenta.saldoCredito
+              
+              if (movimientoViejo.tipo === 'debito') {
+                nuevoDebito -= movimientoViejo.monto
+              } else {
+                nuevoCredito -= movimientoViejo.monto
+              }
+              
+              // Aplicar los valores del movimiento nuevo
+              if (nuevoMovimiento.tipo === 'debito') {
+                nuevoDebito += nuevoMovimiento.monto
+              } else {
+                nuevoCredito += nuevoMovimiento.monto
+              }
+              
+              return {
+                ...cuenta,
+                saldoDebito: nuevoDebito,
+                saldoCredito: nuevoCredito,
+                movimientos: cuenta.movimientos.map(m => 
+                  m.id === movimientoId 
+                    ? { ...nuevoMovimiento, id: movimientoId, fecha: new Date(nuevoMovimiento.fecha) }
+                    : m
+                ),
+              }
+            }
+            return cuenta
+          }),
         }))
       },
       

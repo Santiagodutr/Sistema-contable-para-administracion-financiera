@@ -1,7 +1,10 @@
 import { useCuentasStore } from '@/stores/cuentasStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
+import { FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const EstadoResultadosPage = () => {
   const { obtenerCuentasPorTipo, calcularSaldo } = useCuentasStore()
@@ -22,13 +25,95 @@ const EstadoResultadosPage = () => {
   const margenOperacional = totalIngresos > 0 ? (utilidadOperacional / totalIngresos) * 100 : 0
   const margenNeto = totalIngresos > 0 ? (utilidadNeta / totalIngresos) * 100 : 0
 
+  const exportarAExcel = () => {
+    const datos = [
+      ['ESTADO DE RESULTADOS'],
+      [''],
+      ['INGRESOS'],
+      ['C\u00f3digo', 'Detalle', 'Monto'],
+      ...ingresos.flatMap(cuenta => 
+        cuenta.movimientos.map(mov => [
+          cuenta.codigo,
+          mov.descripcion,
+          mov.monto
+        ])
+      ),
+      ['', 'TOTAL INGRESOS', totalIngresos],
+      [''],
+      ['COSTOS DE VENTAS'],
+      ['C\u00f3digo', 'Detalle', 'Monto'],
+      ...costos.flatMap(cuenta => 
+        cuenta.movimientos.map(mov => [
+          cuenta.codigo,
+          mov.descripcion,
+          mov.monto
+        ])
+      ),
+      ['', 'TOTAL COSTOS', totalCostos],
+      [''],
+      ['', 'UTILIDAD BRUTA', utilidadBruta],
+      ['', `Margen Bruto: ${margenBruto.toFixed(2)}%`],
+      [''],
+      ['GASTOS OPERACIONALES'],
+      ['C\u00f3digo', 'Detalle', 'Monto'],
+      ...gastos.flatMap(cuenta => 
+        cuenta.movimientos.map(mov => [
+          cuenta.codigo,
+          mov.descripcion,
+          mov.monto
+        ])
+      ),
+      ['', 'TOTAL GASTOS', totalGastos],
+      [''],
+      ['', 'UTILIDAD OPERACIONAL', utilidadOperacional],
+      ['', `Margen Operacional: ${margenOperacional.toFixed(2)}%`],
+      [''],
+      ['', 'UTILIDAD NETA', utilidadNeta],
+      ['', `Margen Neto: ${margenNeto.toFixed(2)}%`],
+      [''],
+      ['RESUMEN DEL PROCESO DE C\u00c1LCULO'],
+      ['Concepto', 'Monto'],
+      ['Ingresos', totalIngresos],
+      ['(-) Costos de Ventas', -totalCostos],
+      ['(=) Utilidad Bruta', utilidadBruta],
+      [`C\u00e1lculo: ${totalIngresos} - ${totalCostos} = ${utilidadBruta}`],
+      [''],
+      ['(-) Gastos Operacionales', -totalGastos],
+      ['(=) Utilidad Operacional', utilidadOperacional],
+      [`C\u00e1lculo: ${utilidadBruta} - ${totalGastos} = ${utilidadOperacional}`],
+      [''],
+      ['(=) UTILIDAD NETA DEL PER\u00cdODO', utilidadNeta],
+      [''],
+      ['INDICADORES DE RENTABILIDAD'],
+      ['Margen Bruto', `${margenBruto.toFixed(2)}%`],
+      ['Margen Operacional', `${margenOperacional.toFixed(2)}%`],
+      ['Margen Neto', `${margenNeto.toFixed(2)}%`]
+    ]
+
+    const ws = XLSX.utils.aoa_to_sheet(datos)
+    ws['!cols'] = [{ wch: 15 }, { wch: 40 }, { wch: 20 }]
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Estado de Resultados')
+    XLSX.writeFile(wb, 'estado_de_resultados.xlsx')
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Estado de Resultados</h1>
-        <p className="text-muted-foreground mt-2">
-          Rendimiento financiero de la empresa durante el período
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Estado de Resultados</h1>
+          <p className="text-muted-foreground mt-2">
+            Rendimiento financiero de la empresa durante el per\u00edodo
+          </p>
+        </div>
+        <Button onClick={exportarAExcel} variant="outline">
+          <FileSpreadsheet className="mr-2 h-4 w-4" />
+          Exportar a Excel
+        </Button>
       </div>
 
       <Card>
@@ -42,20 +127,22 @@ const EstadoResultadosPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ingresos.map((cuenta) => (
-                  <TableRow key={cuenta.codigo}>
-                    <TableCell className="font-medium">{cuenta.codigo}</TableCell>
-                    <TableCell>{cuenta.nombre}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(calcularSaldo(cuenta))}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {ingresos.flatMap((cuenta) => 
+                  cuenta.movimientos.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                      <TableCell>{mov.descripcion}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(mov.monto)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={2}>TOTAL INGRESOS</TableCell>
                   <TableCell className="text-right text-lg">
@@ -83,20 +170,22 @@ const EstadoResultadosPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {costos.map((cuenta) => (
-                  <TableRow key={cuenta.codigo}>
-                    <TableCell className="font-medium">{cuenta.codigo}</TableCell>
-                    <TableCell>{cuenta.nombre}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(calcularSaldo(cuenta))}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {costos.flatMap((cuenta) => 
+                  cuenta.movimientos.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                      <TableCell>{mov.descripcion}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(mov.monto)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={2}>TOTAL COSTOS</TableCell>
                   <TableCell className="text-right text-lg">
@@ -141,20 +230,22 @@ const EstadoResultadosPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {gastos.map((cuenta) => (
-                  <TableRow key={cuenta.codigo}>
-                    <TableCell className="font-medium">{cuenta.codigo}</TableCell>
-                    <TableCell>{cuenta.nombre}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(calcularSaldo(cuenta))}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {gastos.flatMap((cuenta) => 
+                  cuenta.movimientos.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                      <TableCell>{mov.descripcion}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(mov.monto)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={2}>TOTAL GASTOS</TableCell>
                   <TableCell className="text-right text-lg">
@@ -202,6 +293,56 @@ const EstadoResultadosPage = () => {
               Margen Neto: {formatPercentage(margenNeto)}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-slate-50 border-slate-200">
+        <CardHeader>
+          <CardTitle>Resumen del Proceso de Cálculo</CardTitle>
+          <CardDescription>Desarrollo numérico del estado de resultados</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3 font-mono text-sm">
+            <div className="flex justify-between items-center p-3 bg-white rounded border">
+              <span>Ingresos</span>
+              <span className="font-bold text-green-600">{formatCurrency(totalIngresos)}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-white rounded border">
+              <span>(-) Costos de Ventas</span>
+              <span className="font-bold text-red-600">({formatCurrency(totalCostos)})</span>
+            </div>
+            <div className="border-t-2 border-slate-300 my-2"></div>
+            <div className="flex justify-between items-center p-3 bg-green-100 rounded border border-green-300">
+              <span className="font-semibold">(=) Utilidad Bruta</span>
+              <span className="font-bold text-green-700">{formatCurrency(utilidadBruta)}</span>
+            </div>
+            <div className="text-xs text-muted-foreground ml-4">
+              {formatCurrency(totalIngresos)} - {formatCurrency(totalCostos)} = {formatCurrency(utilidadBruta)}
+            </div>
+            
+            <div className="flex justify-between items-center p-3 bg-white rounded border mt-4">
+              <span>(-) Gastos Operacionales</span>
+              <span className="font-bold text-red-600">({formatCurrency(totalGastos)})</span>
+            </div>
+            <div className="border-t-2 border-slate-300 my-2"></div>
+            <div className="flex justify-between items-center p-3 bg-blue-100 rounded border border-blue-300">
+              <span className="font-semibold">(=) Utilidad Operacional</span>
+              <span className="font-bold text-blue-700">{formatCurrency(utilidadOperacional)}</span>
+            </div>
+            <div className="text-xs text-muted-foreground ml-4">
+              {formatCurrency(utilidadBruta)} - {formatCurrency(totalGastos)} = {formatCurrency(utilidadOperacional)}
+            </div>
+            
+            <div className="border-t-4 border-slate-400 my-4"></div>
+            <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg border-2 border-purple-300">
+              <span className="font-bold text-lg">(=) UTILIDAD NETA DEL PERÍODO</span>
+              <span className={`font-bold text-2xl ${
+                utilidadNeta >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {formatCurrency(utilidadNeta)}
+              </span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -1,8 +1,10 @@
 import { useCuentasStore } from '@/stores/cuentasStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const BalancePage = () => {
   const { cuentas, calcularSaldo, obtenerCuentasPorTipo } = useCuentasStore()
@@ -13,19 +15,81 @@ const BalancePage = () => {
 
   const totalActivos = activos.reduce((sum, cuenta) => sum + calcularSaldo(cuenta), 0)
   const totalPasivos = pasivos.reduce((sum, cuenta) => sum + calcularSaldo(cuenta), 0)
-  const totalPatrimonio = patrimonio.reduce((sum, cuenta) => sum + calcularSaldo(cuenta), 0)
+  const totalPatrimonio = totalActivos - totalPasivos // Patrimonio = Activos - Pasivos
   const totalPasivoPatrimonio = totalPasivos + totalPatrimonio
 
   const diferencia = Math.abs(totalActivos - totalPasivoPatrimonio)
   const balanceCuadrado = diferencia < 0.01
 
+  const exportarAExcel = () => {
+    const datos = [
+      ['BALANCE GENERAL'],
+      [''],
+      ['ACTIVOS'],
+      ['C\u00f3digo', 'Detalle', 'Saldo'],
+      ...activos.flatMap(cuenta => 
+        cuenta.movimientos.map(mov => [
+          cuenta.codigo,
+          mov.descripcion,
+          mov.tipo === 'debito' ? mov.monto : -mov.monto
+        ])
+      ),
+      ['', 'TOTAL ACTIVOS', totalActivos],
+      [''],
+      ['PASIVOS'],
+      ['C\u00f3digo', 'Detalle', 'Saldo'],
+      ...pasivos.flatMap(cuenta => 
+        cuenta.movimientos.map(mov => [
+          cuenta.codigo,
+          mov.descripcion,
+          mov.tipo === 'credito' ? mov.monto : -mov.monto
+        ])
+      ),
+      ['', 'TOTAL PASIVOS', totalPasivos],
+      [''],
+      ['PATRIMONIO'],
+      ['C\u00f3digo', 'Detalle', 'Saldo'],
+      ...patrimonio.flatMap(cuenta => 
+        cuenta.movimientos.map(mov => [
+          cuenta.codigo,
+          mov.descripcion,
+          mov.tipo === 'credito' ? mov.monto : -mov.monto
+        ])
+      ),
+      ['', 'TOTAL PATRIMONIO (Activos - Pasivos)', totalPatrimonio],
+      [''],
+      ['RESUMEN'],
+      ['Total Activos', totalActivos],
+      ['Total Pasivos', totalPasivos],
+      ['Total Patrimonio', totalPatrimonio],
+      ['Total Pasivo + Patrimonio', totalPasivoPatrimonio],
+      ['', balanceCuadrado ? 'BALANCE CUADRADO' : `DIFERENCIA: ${diferencia}`]
+    ]
+
+    const ws = XLSX.utils.aoa_to_sheet(datos)
+    ws['!cols'] = [{ wch: 15 }, { wch: 40 }, { wch: 20 }]
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Balance General')
+    XLSX.writeFile(wb, 'balance_general.xlsx')
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Balance General</h1>
-        <p className="text-muted-foreground mt-2">
-          Estado de la situación financiera de la empresa
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Balance General</h1>
+          <p className="text-muted-foreground mt-2">
+            Estado de la situaci\u00f3n financiera de la empresa
+          </p>
+        </div>
+        <Button onClick={exportarAExcel} variant="outline">
+          <FileSpreadsheet className="mr-2 h-4 w-4" />
+          Exportar a Excel
+        </Button>
       </div>
 
       <Card>
@@ -40,20 +104,22 @@ const BalancePage = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
-                    <TableHead>Nombre</TableHead>
+                    <TableHead>Detalle</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {activos.map((cuenta) => (
-                    <TableRow key={cuenta.codigo}>
-                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
-                      <TableCell>{cuenta.nombre}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(calcularSaldo(cuenta))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {activos.flatMap((cuenta) => 
+                    cuenta.movimientos.map((mov) => (
+                      <TableRow key={mov.id}>
+                        <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                        <TableCell>{mov.descripcion}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(mov.tipo === 'debito' ? mov.monto : -mov.monto)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={2}>TOTAL ACTIVOS</TableCell>
                     <TableCell className="text-right text-lg">
@@ -82,20 +148,22 @@ const BalancePage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pasivos.map((cuenta) => (
-                  <TableRow key={cuenta.codigo}>
-                    <TableCell className="font-medium">{cuenta.codigo}</TableCell>
-                    <TableCell>{cuenta.nombre}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(calcularSaldo(cuenta))}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {pasivos.flatMap((cuenta) => 
+                  cuenta.movimientos.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                      <TableCell>{mov.descripcion}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(mov.tipo === 'credito' ? mov.monto : -mov.monto)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={2}>TOTAL PASIVOS</TableCell>
                   <TableCell className="text-right text-lg">
@@ -123,20 +191,22 @@ const BalancePage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {patrimonio.map((cuenta) => (
-                  <TableRow key={cuenta.codigo}>
-                    <TableCell className="font-medium">{cuenta.codigo}</TableCell>
-                    <TableCell>{cuenta.nombre}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(calcularSaldo(cuenta))}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {patrimonio.flatMap((cuenta) => 
+                  cuenta.movimientos.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                      <TableCell>{mov.descripcion}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(mov.tipo === 'credito' ? mov.monto : -mov.monto)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={2}>TOTAL PATRIMONIO</TableCell>
                   <TableCell className="text-right text-lg">
