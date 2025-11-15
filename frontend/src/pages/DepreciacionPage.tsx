@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Calculator } from 'lucide-react'
+import { Calculator, Calendar, FileSpreadsheet } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import * as XLSX from 'xlsx'
 
 const activoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
@@ -33,6 +34,24 @@ const DepreciacionPage = () => {
   const [tablaSumaDigitos, setTablaSumaDigitos] = useState<RegistroDepreciacion[]>([])
   const [tablaTasaFija, setTablaTasaFija] = useState<RegistroDepreciacion[]>([])
   const [tasaCalculada, setTasaCalculada] = useState<number>(0)
+  
+  // Estados para fechas en línea recta
+  const [usarDiasLR, setUsarDiasLR] = useState(false)
+  const [fechaInicioLR, setFechaInicioLR] = useState('')
+  const [fechaFinLR, setFechaFinLR] = useState('')
+  const [diasLR, setDiasLR] = useState(0)
+  
+  // Estados para fechas en suma de dígitos
+  const [usarDiasSD, setUsarDiasSD] = useState(false)
+  const [fechaInicioSD, setFechaInicioSD] = useState('')
+  const [fechaFinSD, setFechaFinSD] = useState('')
+  const [diasSD, setDiasSD] = useState(0)
+  
+  // Estados para fechas en tasa fija
+  const [usarDiasTF, setUsarDiasTF] = useState(false)
+  const [fechaInicioTF, setFechaInicioTF] = useState('')
+  const [fechaFinTF, setFechaFinTF] = useState('')
+  const [diasTF, setDiasTF] = useState(0)
 
   const formLineaRecta = useForm<ActivoFormData>({
     resolver: zodResolver(activoSchema),
@@ -83,9 +102,61 @@ const DepreciacionPage = () => {
     }
   }
 
+  const calcularDiasEntreFechas = (inicio: string, fin: string): number => {
+    if (!inicio || !fin) return 0
+    const fecha1 = new Date(inicio)
+    const fecha2 = new Date(fin)
+    
+    // Método contable: 30 días por mes, 360 días por año
+    const anio1 = fecha1.getFullYear()
+    const mes1 = fecha1.getMonth() + 1
+    const dia1 = fecha1.getDate()
+    
+    const anio2 = fecha2.getFullYear()
+    const mes2 = fecha2.getMonth() + 1
+    const dia2 = fecha2.getDate()
+    
+    // Calcular diferencia en años, meses y días
+    let anios = anio2 - anio1
+    let meses = mes2 - mes1
+    let dias = dia2 - dia1 + 1 // +1 para incluir el primer día
+    
+    // Ajustar si los días son negativos
+    if (dias <= 0) {
+      meses--
+      dias += 30
+    }
+    
+    // Ajustar si los meses son negativos
+    if (meses < 0) {
+      anios--
+      meses += 12
+    }
+    
+    // Convertir todo a días (método 30/360)
+    const totalDias = (anios * 360) + (meses * 30) + dias
+    
+    return totalDias > 0 ? totalDias : 0
+  }
+
   const calcularLineaRecta = (data: ActivoFormData) => {
     const valorDepreciable = data.valorInicial - data.valorResidual
     const depreciacionAnual = valorDepreciable / data.vidaUtil
+
+    if (usarDiasLR && diasLR > 0) {
+      // Calcular depreciación para el período de días específico
+      const depreciacionDiaria = depreciacionAnual / 360
+      const depreciacionTotal = depreciacionDiaria * diasLR
+      const valorLibrosFinal = data.valorInicial - depreciacionTotal
+      
+      setTablaLineaRecta([{
+        periodo: 1,
+        depreciacionPeriodo: depreciacionTotal,
+        depreciacionAcumulada: depreciacionTotal,
+        valorLibros: valorLibrosFinal,
+      }])
+      return
+    }
 
     const tabla: RegistroDepreciacion[] = []
     let depreciacionAcum = 0
@@ -106,6 +177,51 @@ const DepreciacionPage = () => {
   const calcularSumaDigitos = (data: ActivoFormData) => {
     const valorDepreciable = data.valorInicial - data.valorResidual
     const sumaDigitos = (data.vidaUtil * (data.vidaUtil + 1)) / 2
+
+    if (usarDiasSD && diasSD > 0) {
+      // Dividir los días en años completos (360 días) y días restantes
+      const aniosCompletos = Math.floor(diasSD / 360)
+      const diasRestantes = diasSD % 360
+      
+      const tabla: RegistroDepreciacion[] = []
+      let depreciacionAcum = 0
+      let valorLibrosActual = data.valorInicial
+      
+      // Calcular años completos
+      for (let i = 1; i <= aniosCompletos; i++) {
+        const factor = (data.vidaUtil - i + 1) / sumaDigitos
+        const depreciacionPeriodo = valorDepreciable * factor
+        depreciacionAcum += depreciacionPeriodo
+        valorLibrosActual = data.valorInicial - depreciacionAcum
+        
+        tabla.push({
+          periodo: i,
+          depreciacionPeriodo,
+          depreciacionAcumulada: depreciacionAcum,
+          valorLibros: valorLibrosActual,
+        })
+      }
+      
+      // Calcular días restantes si existen
+      if (diasRestantes > 0 && aniosCompletos < data.vidaUtil) {
+        const factor = (data.vidaUtil - aniosCompletos) / sumaDigitos
+        const depreciacionAnual = valorDepreciable * factor
+        const depreciacionDiaria = depreciacionAnual / 360
+        const depreciacionPeriodo = depreciacionDiaria * diasRestantes
+        depreciacionAcum += depreciacionPeriodo
+        valorLibrosActual = data.valorInicial - depreciacionAcum
+        
+        tabla.push({
+          periodo: aniosCompletos + 1,
+          depreciacionPeriodo,
+          depreciacionAcumulada: depreciacionAcum,
+          valorLibros: valorLibrosActual,
+        })
+      }
+      
+      setTablaSumaDigitos(tabla)
+      return
+    }
 
     const tabla: RegistroDepreciacion[] = []
     let depreciacionAcum = 0
@@ -128,6 +244,66 @@ const DepreciacionPage = () => {
 
   const calcularTasaFija = (data: ActivoFormData) => {
     const tasa = (data.tasaFija || 20) / 100
+
+    if (usarDiasTF && diasTF > 0) {
+      // Dividir los días en años completos (360 días) y días restantes
+      const aniosCompletos = Math.floor(diasTF / 360)
+      const diasRestantes = diasTF % 360
+      
+      const tabla: RegistroDepreciacion[] = []
+      let valorLibros = data.valorInicial
+      let depreciacionAcum = 0
+      
+      // Calcular años completos
+      for (let i = 1; i <= aniosCompletos; i++) {
+        let depreciacionPeriodo = valorLibros * tasa
+        
+        // No depreciar por debajo del valor residual
+        if (valorLibros - depreciacionPeriodo < data.valorResidual) {
+          depreciacionPeriodo = valorLibros - data.valorResidual
+        }
+        
+        depreciacionAcum += depreciacionPeriodo
+        valorLibros -= depreciacionPeriodo
+        
+        tabla.push({
+          periodo: i,
+          depreciacionPeriodo,
+          depreciacionAcumulada: depreciacionAcum,
+          valorLibros,
+        })
+        
+        // Si ya llegamos al valor residual, detener
+        if (valorLibros <= data.valorResidual) {
+          break
+        }
+      }
+      
+      // Calcular días restantes si existen y no hemos llegado al valor residual
+      if (diasRestantes > 0 && valorLibros > data.valorResidual && aniosCompletos < data.vidaUtil) {
+        const depreciacionAnual = valorLibros * tasa
+        const depreciacionDiaria = depreciacionAnual / 360
+        let depreciacionPeriodo = depreciacionDiaria * diasRestantes
+        
+        // No depreciar por debajo del valor residual
+        if (valorLibros - depreciacionPeriodo < data.valorResidual) {
+          depreciacionPeriodo = valorLibros - data.valorResidual
+        }
+        
+        depreciacionAcum += depreciacionPeriodo
+        valorLibros -= depreciacionPeriodo
+        
+        tabla.push({
+          periodo: aniosCompletos + 1,
+          depreciacionPeriodo,
+          depreciacionAcumulada: depreciacionAcum,
+          valorLibros,
+        })
+      }
+      
+      setTablaTasaFija(tabla)
+      return
+    }
 
     const tabla: RegistroDepreciacion[] = []
     let valorLibros = data.valorInicial
@@ -171,6 +347,147 @@ const DepreciacionPage = () => {
     }
 
     setTablaTasaFija(tabla)
+  }
+
+  const exportarLineaRectaExcel = () => {
+    if (tablaLineaRecta.length === 0) return
+
+    const data: any[][] = []
+    data.push(['Método de Depreciación: Línea Recta'])
+    data.push([])
+    data.push(['Año/Período', 'Depreciación del Período', 'Depreciación Acumulada', 'Valor en Libros'])
+
+    tablaLineaRecta.forEach((registro) => {
+      let labelPeriodo = ''
+      if (usarDiasLR && diasLR > 0) {
+        const aniosCompletos = Math.floor(diasLR / 360)
+        const diasRestantes = diasLR % 360
+        
+        if (registro.periodo <= aniosCompletos) {
+          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+          labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+        } else {
+          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+          const label = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+          labelPeriodo = `${label} (${diasRestantes} días)`
+        }
+      } else {
+        const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+        labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+      }
+
+      data.push([
+        labelPeriodo,
+        registro.depreciacionPeriodo,
+        registro.depreciacionAcumulada,
+        registro.valorLibros
+      ])
+    })
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 }
+    ]
+    XLSX.utils.book_append_sheet(wb, ws, 'Linea Recta')
+    XLSX.writeFile(wb, `Depreciacion_LineaRecta_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`)
+  }
+
+  const exportarSumaDigitosExcel = () => {
+    if (tablaSumaDigitos.length === 0) return
+
+    const data: any[][] = []
+    data.push(['Método de Depreciación: Suma de Dígitos'])
+    data.push([])
+    data.push(['Año/Período', 'Depreciación del Período', 'Depreciación Acumulada', 'Valor en Libros'])
+
+    tablaSumaDigitos.forEach((registro) => {
+      let labelPeriodo = ''
+      if (usarDiasSD && diasSD > 0) {
+        const aniosCompletos = Math.floor(diasSD / 360)
+        const diasRestantes = diasSD % 360
+        
+        if (registro.periodo <= aniosCompletos) {
+          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+          labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+        } else {
+          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+          const label = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+          labelPeriodo = `${label} (${diasRestantes} días)`
+        }
+      } else {
+        const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+        labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+      }
+
+      data.push([
+        labelPeriodo,
+        registro.depreciacionPeriodo,
+        registro.depreciacionAcumulada,
+        registro.valorLibros
+      ])
+    })
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 }
+    ]
+    XLSX.utils.book_append_sheet(wb, ws, 'Suma de Digitos')
+    XLSX.writeFile(wb, `Depreciacion_SumaDigitos_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`)
+  }
+
+  const exportarTasaFijaExcel = () => {
+    if (tablaTasaFija.length === 0) return
+
+    const data: any[][] = []
+    data.push(['Método de Depreciación: Tasa Fija (Saldos Decrecientes)'])
+    data.push([])
+    data.push(['Año/Período', 'Depreciación del Período', 'Depreciación Acumulada', 'Valor en Libros'])
+
+    tablaTasaFija.forEach((registro) => {
+      let labelPeriodo = ''
+      if (usarDiasTF && diasTF > 0) {
+        const aniosCompletos = Math.floor(diasTF / 360)
+        const diasRestantes = diasTF % 360
+        
+        if (registro.periodo <= aniosCompletos) {
+          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+          labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+        } else {
+          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+          const label = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+          labelPeriodo = `${label} (${diasRestantes} días)`
+        }
+      } else {
+        const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+        labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
+      }
+
+      data.push([
+        labelPeriodo,
+        registro.depreciacionPeriodo,
+        registro.depreciacionAcumulada,
+        registro.valorLibros
+      ])
+    })
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 }
+    ]
+    XLSX.utils.book_append_sheet(wb, ws, 'Tasa Fija')
+    XLSX.writeFile(wb, `Depreciacion_TasaFija_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`)
   }
 
   return (
@@ -248,6 +565,76 @@ const DepreciacionPage = () => {
                   </div>
                 </div>
 
+                <div className="border-t pt-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <input
+                      type="checkbox"
+                      id="usarDiasLR"
+                      checked={usarDiasLR}
+                      onChange={(e) => {
+                        setUsarDiasLR(e.target.checked)
+                        if (!e.target.checked) {
+                          setFechaInicioLR('')
+                          setFechaFinLR('')
+                          setDiasLR(0)
+                        }
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="usarDiasLR" className="cursor-pointer">
+                      Calcular para un período específico de días
+                    </Label>
+                  </div>
+
+                  {usarDiasLR && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label>Fecha de Inicio</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={fechaInicioLR}
+                            onChange={(e) => {
+                              setFechaInicioLR(e.target.value)
+                              if (fechaFinLR) {
+                                setDiasLR(calcularDiasEntreFechas(e.target.value, fechaFinLR))
+                              }
+                            }}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Fecha de Fin</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={fechaFinLR}
+                            onChange={(e) => {
+                              setFechaFinLR(e.target.value)
+                              if (fechaInicioLR) {
+                                setDiasLR(calcularDiasEntreFechas(fechaInicioLR, e.target.value))
+                              }
+                            }}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      {diasLR > 0 && (
+                        <div className="md:col-span-2 p-3 bg-white rounded border border-blue-200">
+                          <p className="text-sm font-medium text-blue-900">
+                            Período: <span className="text-lg font-bold">{diasLR}</span> días (método 30/360)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <Button type="submit" className="w-full">
                   <Calculator className="mr-2 h-4 w-4" />
                   Calcular Depreciación
@@ -259,13 +646,22 @@ const DepreciacionPage = () => {
           {tablaLineaRecta.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Tabla de Depreciación - Línea Recta</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>
+                    Tabla de Depreciación - Línea Recta
+                    {usarDiasLR && diasLR > 0 && ` (${diasLR} días)`}
+                  </CardTitle>
+                  <Button onClick={exportarLineaRectaExcel} variant="outline" size="sm">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Exportar a Excel
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Año</TableHead>
+                      <TableHead>{usarDiasLR ? 'Período' : 'Año'}</TableHead>
                       <TableHead className="text-right">Depreciación del Período</TableHead>
                       <TableHead className="text-right">Depreciación Acumulada</TableHead>
                       <TableHead className="text-right">Valor en Libros</TableHead>
@@ -351,6 +747,76 @@ const DepreciacionPage = () => {
                   </div>
                 </div>
 
+                <div className="border-t pt-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <input
+                      type="checkbox"
+                      id="usarDiasSD"
+                      checked={usarDiasSD}
+                      onChange={(e) => {
+                        setUsarDiasSD(e.target.checked)
+                        if (!e.target.checked) {
+                          setFechaInicioSD('')
+                          setFechaFinSD('')
+                          setDiasSD(0)
+                        }
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="usarDiasSD" className="cursor-pointer">
+                      Calcular para un período específico de días
+                    </Label>
+                  </div>
+
+                  {usarDiasSD && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label>Fecha de Inicio</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={fechaInicioSD}
+                            onChange={(e) => {
+                              setFechaInicioSD(e.target.value)
+                              if (fechaFinSD) {
+                                setDiasSD(calcularDiasEntreFechas(e.target.value, fechaFinSD))
+                              }
+                            }}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Fecha de Fin</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={fechaFinSD}
+                            onChange={(e) => {
+                              setFechaFinSD(e.target.value)
+                              if (fechaInicioSD) {
+                                setDiasSD(calcularDiasEntreFechas(fechaInicioSD, e.target.value))
+                              }
+                            }}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      {diasSD > 0 && (
+                        <div className="md:col-span-2 p-3 bg-white rounded border border-blue-200">
+                          <p className="text-sm font-medium text-blue-900">
+                            Período: <span className="text-lg font-bold">{diasSD}</span> días (método 30/360)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <Button type="submit" className="w-full">
                   <Calculator className="mr-2 h-4 w-4" />
                   Calcular Depreciación
@@ -362,27 +828,64 @@ const DepreciacionPage = () => {
           {tablaSumaDigitos.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Tabla de Depreciación - Suma de Dígitos</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>
+                    Tabla de Depreciación - Suma de Dígitos
+                    {usarDiasSD && diasSD > 0 && ` (${diasSD} días)`}
+                  </CardTitle>
+                  <Button onClick={exportarSumaDigitosExcel} variant="outline" size="sm">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Exportar a Excel
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Año</TableHead>
+                      <TableHead>{usarDiasSD && diasSD > 0 ? 'Período' : 'Año'}</TableHead>
                       <TableHead className="text-right">Depreciación del Período</TableHead>
                       <TableHead className="text-right">Depreciación Acumulada</TableHead>
                       <TableHead className="text-right">Valor en Libros</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tablaSumaDigitos.map((registro) => (
-                      <TableRow key={registro.periodo}>
-                        <TableCell className="font-medium">{registro.periodo}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(registro.depreciacionPeriodo)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(registro.depreciacionAcumulada)}</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(registro.valorLibros)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {tablaSumaDigitos.map((registro) => {
+                      let labelPeriodo = ''
+                      if (usarDiasSD && diasSD > 0) {
+                        const aniosCompletos = Math.floor(diasSD / 360)
+                        const diasRestantes = diasSD % 360
+                        
+                        if (registro.periodo <= aniosCompletos) {
+                          // Años completos
+                          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+                          labelPeriodo = registro.periodo <= 10 
+                            ? `${ordenales[registro.periodo]} año` 
+                            : `${registro.periodo}º año`
+                        } else {
+                          // Último período con días restantes
+                          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+                          const label = registro.periodo <= 10 
+                            ? `${ordenales[registro.periodo]} año` 
+                            : `${registro.periodo}º año`
+                          labelPeriodo = `${label} (${diasRestantes} días)`
+                        }
+                      } else {
+                        const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+                        labelPeriodo = registro.periodo <= 10 
+                          ? `${ordenales[registro.periodo]} año` 
+                          : `${registro.periodo}º año`
+                      }
+                      
+                      return (
+                        <TableRow key={registro.periodo}>
+                          <TableCell className="font-medium">{labelPeriodo}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(registro.depreciacionPeriodo)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(registro.depreciacionAcumulada)}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatCurrency(registro.valorLibros)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
 
@@ -485,6 +988,76 @@ const DepreciacionPage = () => {
                   </div>
                 </div>
 
+                <div className="border-t pt-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <input
+                      type="checkbox"
+                      id="usarDiasTF"
+                      checked={usarDiasTF}
+                      onChange={(e) => {
+                        setUsarDiasTF(e.target.checked)
+                        if (!e.target.checked) {
+                          setFechaInicioTF('')
+                          setFechaFinTF('')
+                          setDiasTF(0)
+                        }
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="usarDiasTF" className="cursor-pointer">
+                      Calcular para un período específico de días
+                    </Label>
+                  </div>
+
+                  {usarDiasTF && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label>Fecha de Inicio</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={fechaInicioTF}
+                            onChange={(e) => {
+                              setFechaInicioTF(e.target.value)
+                              if (fechaFinTF) {
+                                setDiasTF(calcularDiasEntreFechas(e.target.value, fechaFinTF))
+                              }
+                            }}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Fecha de Fin</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={fechaFinTF}
+                            onChange={(e) => {
+                              setFechaFinTF(e.target.value)
+                              if (fechaInicioTF) {
+                                setDiasTF(calcularDiasEntreFechas(fechaInicioTF, e.target.value))
+                              }
+                            }}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      {diasTF > 0 && (
+                        <div className="md:col-span-2 p-3 bg-white rounded border border-blue-200">
+                          <p className="text-sm font-medium text-blue-900">
+                            Período: <span className="text-lg font-bold">{diasTF}</span> días (método 30/360)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <Button type="submit" className="w-full">
                   <Calculator className="mr-2 h-4 w-4" />
                   Calcular Depreciación
@@ -496,27 +1069,64 @@ const DepreciacionPage = () => {
           {tablaTasaFija.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Tabla de Depreciación - Tasa Fija</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>
+                    Tabla de Depreciación - Tasa Fija
+                    {usarDiasTF && diasTF > 0 && ` (${diasTF} días)`}
+                  </CardTitle>
+                  <Button onClick={exportarTasaFijaExcel} variant="outline" size="sm">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Exportar a Excel
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Año</TableHead>
+                      <TableHead>{usarDiasTF && diasTF > 0 ? 'Período' : 'Año'}</TableHead>
                       <TableHead className="text-right">Depreciación del Período</TableHead>
                       <TableHead className="text-right">Depreciación Acumulada</TableHead>
                       <TableHead className="text-right">Valor en Libros</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tablaTasaFija.map((registro) => (
-                      <TableRow key={registro.periodo}>
-                        <TableCell className="font-medium">{registro.periodo}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(registro.depreciacionPeriodo)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(registro.depreciacionAcumulada)}</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(registro.valorLibros)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {tablaTasaFija.map((registro) => {
+                      let labelPeriodo = ''
+                      if (usarDiasTF && diasTF > 0) {
+                        const aniosCompletos = Math.floor(diasTF / 360)
+                        const diasRestantes = diasTF % 360
+                        
+                        if (registro.periodo <= aniosCompletos) {
+                          // Años completos
+                          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+                          labelPeriodo = registro.periodo <= 10 
+                            ? `${ordenales[registro.periodo]} año` 
+                            : `${registro.periodo}º año`
+                        } else {
+                          // Último período con días restantes
+                          const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+                          const label = registro.periodo <= 10 
+                            ? `${ordenales[registro.periodo]} año` 
+                            : `${registro.periodo}º año`
+                          labelPeriodo = `${label} (${diasRestantes} días)`
+                        }
+                      } else {
+                        const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
+                        labelPeriodo = registro.periodo <= 10 
+                          ? `${ordenales[registro.periodo]} año` 
+                          : `${registro.periodo}º año`
+                      }
+                      
+                      return (
+                        <TableRow key={registro.periodo}>
+                          <TableCell className="font-medium">{labelPeriodo}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(registro.depreciacionPeriodo)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(registro.depreciacionAcumulada)}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatCurrency(registro.valorLibros)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
 
