@@ -32,6 +32,7 @@ const DepreciacionPage = () => {
   const [tablaLineaRecta, setTablaLineaRecta] = useState<RegistroDepreciacion[]>([])
   const [tablaSumaDigitos, setTablaSumaDigitos] = useState<RegistroDepreciacion[]>([])
   const [tablaTasaFija, setTablaTasaFija] = useState<RegistroDepreciacion[]>([])
+  const [tasaCalculada, setTasaCalculada] = useState<number>(0)
 
   const formLineaRecta = useForm<ActivoFormData>({
     resolver: zodResolver(activoSchema),
@@ -63,6 +64,24 @@ const DepreciacionPage = () => {
       tasaFija: 20,
     },
   })
+
+  const calcularTasaDepreciacion = (valorInicial: number, valorResidual: number, vidaUtil: number): number => {
+    if (valorInicial <= 0 || valorResidual < 0 || vidaUtil <= 0) return 0
+    if (valorResidual >= valorInicial) return 0
+    
+    // Fórmula: Tasa = 1 - (Valor Residual / Valor Inicial)^(1/Vida Útil)
+    const tasa = 1 - Math.pow(valorResidual / valorInicial, 1 / vidaUtil)
+    return tasa * 100 // Convertir a porcentaje
+  }
+
+  const actualizarTasaTasaFija = () => {
+    const valores = formTasaFija.getValues()
+    if (valores.valorInicial > 0 && valores.vidaUtil > 0) {
+      const tasa = calcularTasaDepreciacion(valores.valorInicial, valores.valorResidual, valores.vidaUtil)
+      setTasaCalculada(tasa)
+      formTasaFija.setValue('tasaFija', tasa)
+    }
+  }
 
   const calcularLineaRecta = (data: ActivoFormData) => {
     const valorDepreciable = data.valorInicial - data.valorResidual
@@ -406,6 +425,10 @@ const DepreciacionPage = () => {
                       type="number"
                       {...formTasaFija.register('valorInicial', { valueAsNumber: true })}
                       placeholder="100000000"
+                      onChange={(e) => {
+                        formTasaFija.setValue('valorInicial', parseFloat(e.target.value) || 0)
+                        actualizarTasaTasaFija()
+                      }}
                     />
                     {formTasaFija.formState.errors.valorInicial && (
                       <p className="text-sm text-red-500">{formTasaFija.formState.errors.valorInicial.message}</p>
@@ -418,6 +441,10 @@ const DepreciacionPage = () => {
                       type="number"
                       {...formTasaFija.register('valorResidual', { valueAsNumber: true })}
                       placeholder="10000000"
+                      onChange={(e) => {
+                        formTasaFija.setValue('valorResidual', parseFloat(e.target.value) || 0)
+                        actualizarTasaTasaFija()
+                      }}
                     />
                     {formTasaFija.formState.errors.valorResidual && (
                       <p className="text-sm text-red-500">{formTasaFija.formState.errors.valorResidual.message}</p>
@@ -430,6 +457,10 @@ const DepreciacionPage = () => {
                       type="number"
                       {...formTasaFija.register('vidaUtil', { valueAsNumber: true })}
                       placeholder="5"
+                      onChange={(e) => {
+                        formTasaFija.setValue('vidaUtil', parseFloat(e.target.value) || 0)
+                        actualizarTasaTasaFija()
+                      }}
                     />
                     {formTasaFija.formState.errors.vidaUtil && (
                       <p className="text-sm text-red-500">{formTasaFija.formState.errors.vidaUtil.message}</p>
@@ -437,17 +468,19 @@ const DepreciacionPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Tasa de Depreciación (%)</Label>
+                    <Label>Tasa de Depreciación (%) - Calculada</Label>
                     <Input
                       type="number"
                       {...formTasaFija.register('tasaFija', { valueAsNumber: true })}
-                      placeholder="20"
+                      value={tasaCalculada.toFixed(10)}
+                      readOnly
+                      className="bg-gray-50"
                     />
                     {formTasaFija.formState.errors.tasaFija && (
                       <p className="text-sm text-red-500">{formTasaFija.formState.errors.tasaFija.message}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Común: 20% para 5 años, 40% para doble saldo decreciente
+                      Calculada automáticamente con: Tasa = 1 - (VR/VI)^(1/n)
                     </p>
                   </div>
                 </div>
@@ -487,8 +520,9 @@ const DepreciacionPage = () => {
                   </TableBody>
                 </Table>
 
-                <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <p className="text-sm font-medium">Fórmula:</p>
+                <div className="mt-4 p-4 bg-muted rounded-lg space-y-2">
+                  <p className="text-sm font-medium">Fórmulas:</p>
+                  <p className="text-sm">Tasa = 1 - (Valor Residual / Valor Inicial)^(1 / Vida Útil)</p>
                   <p className="text-sm">Depreciación Año = Valor en Libros × Tasa de Depreciación</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Nota: El activo no se deprecia por debajo del valor residual
