@@ -5,18 +5,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
-import { Pencil, Trash2, FileSpreadsheet } from 'lucide-react'
+import Pencil from 'lucide-react/dist/esm/icons/pencil'
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2'
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
 import * as XLSX from 'xlsx'
 
 const KardexPage = () => {
   const { productos, registrarEntrada, registrarSalida, cambiarMetodo, limpiarTabla, editarMovimiento, eliminarMovimiento } = useKardexStore()
-  
+
   // Nueva fila
   const [detalle, setDetalle] = useState('')
   const [tipoMovimiento, setTipoMovimiento] = useState<'ENTRADA' | 'SALIDA'>('ENTRADA')
   const [cantidad, setCantidad] = useState('')
   const [costoUnitario, setCostoUnitario] = useState('')
-  
+
   // Estado de edición
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editFecha, setEditFecha] = useState('')
@@ -57,7 +59,7 @@ const KardexPage = () => {
     setCantidad('')
     setCostoUnitario('')
   }
-  
+
   const iniciarEdicion = (mov: any) => {
     setEditandoId(mov.id)
     setEditFecha(new Date(mov.fecha).toISOString().split('T')[0])
@@ -65,23 +67,23 @@ const KardexPage = () => {
     setEditCantidad(mov.cantidad.toString())
     setEditCostoUnitario(mov.tipo === 'ENTRADA' ? mov.costoUnitario.toString() : '')
   }
-  
+
   const guardarEdicion = (mov: any) => {
     if (!productoSeleccionado || !editandoId) return
-    
+
     if (!editDetalle || !editCantidad) {
       alert('Complete todos los campos')
       return
     }
-    
+
     const cantidad = parseInt(editCantidad)
     const costoUnitario = mov.tipo === 'ENTRADA' && editCostoUnitario ? parseFloat(editCostoUnitario) : undefined
-    
+
     if (mov.tipo === 'ENTRADA' && !costoUnitario) {
       alert('Ingrese el costo unitario para entradas')
       return
     }
-    
+
     editarMovimiento(
       productoSeleccionado.codigo,
       editandoId,
@@ -90,25 +92,25 @@ const KardexPage = () => {
       cantidad,
       costoUnitario
     )
-    
+
     setEditandoId(null)
   }
-  
+
   const cancelarEdicion = () => {
     setEditandoId(null)
   }
-  
+
   const handleEliminarMovimiento = (movId: string) => {
     if (!productoSeleccionado) return
-    
+
     if (confirm('¿Está seguro de eliminar este movimiento?')) {
       eliminarMovimiento(productoSeleccionado.codigo, movId)
     }
   }
-  
+
   const calcularTotales = () => {
     if (!productoSeleccionado) return { entradas: 0, salidas: 0, saldo: 0 }
-    
+
     const totales = productoSeleccionado.movimientos.reduce((acc, mov) => {
       if (mov.tipo === 'ENTRADA') {
         acc.entradas += mov.cantidad
@@ -117,7 +119,7 @@ const KardexPage = () => {
       }
       return acc
     }, { entradas: 0, salidas: 0, saldo: 0 })
-    
+
     totales.saldo = totales.entradas - totales.salidas
     return totales
   }
@@ -132,16 +134,16 @@ const KardexPage = () => {
 
     // Crear libro de Excel
     const wb = XLSX.utils.book_new()
-    
+
     // Crear array de datos con encabezados personalizados
     const data: any[][] = []
-    
+
     // Fila 1: Encabezados principales
     data.push(['Fecha', 'Detalle', 'Entradas', '', '', 'Salidas', '', '', 'Saldos', '', ''])
-    
+
     // Fila 2: Subencabezados
     data.push(['', '', 'cantidad', 'Valor Unitario', 'Valor Total', 'cantidad', 'Valor Unitario', 'Valor Total', 'cantidad', 'Valor Unitario', 'Valor Total'])
-    
+
     // Agregar datos de movimientos
     productoSeleccionado.movimientos.forEach((mov) => {
       data.push([
@@ -158,7 +160,7 @@ const KardexPage = () => {
         mov.saldoCostoTotal,
       ])
     })
-    
+
     // Agregar fila de totales
     data.push([
       '',
@@ -234,18 +236,18 @@ const KardexPage = () => {
               </select>
             </div>
           )}
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             onClick={exportarAExcel}
             disabled={!productoSeleccionado || productoSeleccionado.movimientos.length === 0}
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Exportar a Excel
           </Button>
-          
-          <Button 
-            variant="destructive" 
+
+          <Button
+            variant="destructive"
             onClick={() => {
               if (productoSeleccionado && confirm('¿Está seguro de limpiar toda la tabla?')) {
                 limpiarTabla(productoSeleccionado.codigo)
@@ -268,31 +270,31 @@ const KardexPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead rowSpan={2} className="text-center border bg-gray-100">Fecha</TableHead>
-                  <TableHead rowSpan={2} className="text-center border bg-gray-100">Detalle</TableHead>
-                  <TableHead colSpan={3} className="text-center border bg-gray-100">Entradas</TableHead>
-                  <TableHead colSpan={3} className="text-center border bg-gray-100">Salidas</TableHead>
-                  <TableHead colSpan={3} className="text-center border bg-gray-100">Saldos</TableHead>
-                  <TableHead rowSpan={2} className="text-center border bg-gray-100">Acciones</TableHead>
+                  <TableHead rowSpan={2} className="text-center border bg-secondary/50 font-semibold">Fecha</TableHead>
+                  <TableHead rowSpan={2} className="text-center border bg-secondary/50 font-semibold">Detalle</TableHead>
+                  <TableHead colSpan={3} className="text-center border bg-secondary/50 font-semibold">Entradas</TableHead>
+                  <TableHead colSpan={3} className="text-center border bg-secondary/50 font-semibold">Salidas</TableHead>
+                  <TableHead colSpan={3} className="text-center border bg-secondary/50 font-semibold">Saldos</TableHead>
+                  <TableHead rowSpan={2} className="text-center border bg-secondary/50 font-semibold">Acciones</TableHead>
                 </TableRow>
                 <TableRow>
-                  <TableHead className="border text-right text-xs bg-gray-50">cantidad</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">Valor Unitario</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">Valor Total</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">cantidad</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">Valor Unitario</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">Valor Total</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">cantidad</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">Valor Unitario</TableHead>
-                  <TableHead className="border text-right text-xs bg-gray-50">Valor Total</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">cantidad</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">Valor Unitario</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">Valor Total</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">cantidad</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">Valor Unitario</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">Valor Total</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">cantidad</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">Valor Unitario</TableHead>
+                  <TableHead className="border text-right text-xs bg-secondary/30">Valor Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {productoSeleccionado?.movimientos.map((mov) => {
                   const esEditable = editandoId === mov.id
-                  
+
                   return (
-                    <TableRow key={mov.id} className={esEditable ? 'bg-yellow-50' : ''}>
+                    <TableRow key={mov.id} className={esEditable ? 'bg-primary/10' : ''}>
                       <TableCell className="border text-xs">
                         {esEditable ? (
                           <Input
@@ -316,7 +318,7 @@ const KardexPage = () => {
                           mov.detalle
                         )}
                       </TableCell>
-                      
+
                       {mov.tipo === 'ENTRADA' ? (
                         <>
                           <TableCell className="border text-right text-xs">
@@ -357,7 +359,7 @@ const KardexPage = () => {
                           <TableCell className="border"></TableCell>
                         </>
                       )}
-                      
+
                       {mov.tipo === 'SALIDA' ? (
                         <>
                           <TableCell className="border text-right text-xs">
@@ -386,7 +388,7 @@ const KardexPage = () => {
                           <TableCell className="border"></TableCell>
                         </>
                       )}
-                      
+
                       <TableCell className="border text-right font-semibold text-xs">
                         {mov.saldoCantidad}
                       </TableCell>
@@ -396,7 +398,7 @@ const KardexPage = () => {
                       <TableCell className="border text-right font-semibold text-xs">
                         {formatCurrency(mov.saldoCostoTotal)}
                       </TableCell>
-                      
+
                       <TableCell className="border">
                         {esEditable ? (
                           <div className="flex gap-1 justify-center">
@@ -421,9 +423,9 @@ const KardexPage = () => {
                     </TableRow>
                   )
                 })}
-                
+
                 {/* Fila de entrada de datos */}
-                <TableRow className="bg-blue-50">
+                <TableRow className="bg-primary/5">
                   <TableCell className="border">
                     <Input
                       type="date"
@@ -438,7 +440,7 @@ const KardexPage = () => {
                       className="h-8 text-xs"
                     />
                   </TableCell>
-                  
+
                   {tipoMovimiento === 'ENTRADA' ? (
                     <>
                       <TableCell className="border">
@@ -485,11 +487,11 @@ const KardexPage = () => {
                       <TableCell className="border"></TableCell>
                     </>
                   )}
-                  
+
                   <TableCell className="border"></TableCell>
                   <TableCell className="border"></TableCell>
                   <TableCell className="border"></TableCell>
-                  
+
                   <TableCell className="border">
                     <div className="flex gap-2">
                       <select
@@ -506,9 +508,9 @@ const KardexPage = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-                
+
                 {/* Fila de totales */}
-                <TableRow className="bg-gray-100 font-bold">
+                <TableRow className="bg-secondary/50 font-bold">
                   <TableCell className="border text-center">Totales</TableCell>
                   <TableCell className="border"></TableCell>
                   <TableCell className="border text-right">{totales.entradas}</TableCell>

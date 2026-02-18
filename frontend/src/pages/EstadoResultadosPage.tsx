@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
-import { FileSpreadsheet } from 'lucide-react'
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
 import * as XLSX from 'xlsx'
 
 const EstadoResultadosPage = () => {
@@ -31,7 +31,7 @@ const EstadoResultadosPage = () => {
       [''],
       ['INGRESOS'],
       ['C\u00f3digo', 'Detalle', 'Monto'],
-      ...ingresos.flatMap(cuenta => 
+      ...ingresos.flatMap(cuenta =>
         cuenta.movimientos.map(mov => [
           cuenta.codigo,
           mov.descripcion,
@@ -42,7 +42,7 @@ const EstadoResultadosPage = () => {
       [''],
       ['COSTOS DE VENTAS'],
       ['C\u00f3digo', 'Detalle', 'Monto'],
-      ...costos.flatMap(cuenta => 
+      ...costos.flatMap(cuenta =>
         cuenta.movimientos.map(mov => [
           cuenta.codigo,
           mov.descripcion,
@@ -56,7 +56,7 @@ const EstadoResultadosPage = () => {
       [''],
       ['GASTOS OPERACIONALES'],
       ['C\u00f3digo', 'Detalle', 'Monto'],
-      ...gastos.flatMap(cuenta => 
+      ...gastos.flatMap(cuenta =>
         cuenta.movimientos.map(mov => [
           cuenta.codigo,
           mov.descripcion,
@@ -132,7 +132,7 @@ const EstadoResultadosPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ingresos.flatMap((cuenta) => 
+                {ingresos.flatMap((cuenta) =>
                   cuenta.movimientos.map((mov) => (
                     <TableRow key={mov.id}>
                       <TableCell className="font-medium">{cuenta.codigo}</TableCell>
@@ -175,7 +175,7 @@ const EstadoResultadosPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {costos.flatMap((cuenta) => 
+                {costos.flatMap((cuenta) =>
                   cuenta.movimientos.map((mov) => (
                     <TableRow key={mov.id}>
                       <TableCell className="font-medium">{cuenta.codigo}</TableCell>
@@ -202,13 +202,13 @@ const EstadoResultadosPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-green-50 border-green-200">
+      <Card className="glass border-green-500/20">
         <CardHeader>
-          <CardTitle>Utilidad Bruta</CardTitle>
+          <CardTitle className="text-green-400">Utilidad Bruta</CardTitle>
           <CardDescription>Ingresos - Costos de Ventas</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-green-700">
+          <div className="text-3xl font-bold text-green-400">
             {formatCurrency(utilidadBruta)}
           </div>
           {totalIngresos > 0 && (
@@ -235,7 +235,7 @@ const EstadoResultadosPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {gastos.flatMap((cuenta) => 
+                {gastos.flatMap((cuenta) =>
                   cuenta.movimientos.map((mov) => (
                     <TableRow key={mov.id}>
                       <TableCell className="font-medium">{cuenta.codigo}</TableCell>
@@ -262,13 +262,13 @@ const EstadoResultadosPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="glass border-blue-500/20">
         <CardHeader>
-          <CardTitle>Utilidad Operacional</CardTitle>
+          <CardTitle className="text-blue-400">Utilidad Operacional</CardTitle>
           <CardDescription>Utilidad Bruta - Gastos Operacionales</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-blue-700">
+          <div className="text-3xl font-bold text-blue-400">
             {formatCurrency(utilidadOperacional)}
           </div>
           {totalIngresos > 0 && (
@@ -279,13 +279,13 @@ const EstadoResultadosPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-primary/10 border-primary">
+      <Card className="glass border-primary glow-emerald">
         <CardHeader>
           <CardTitle className="text-2xl">Utilidad Neta del Período</CardTitle>
           <CardDescription>Resultado final del ejercicio</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className={`text-4xl font-bold ${utilidadNeta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div className={`text-4xl font-bold ${utilidadNeta >= 0 ? 'text-primary' : 'text-destructive'}`}>
             {formatCurrency(utilidadNeta)}
           </div>
           {totalIngresos > 0 && (
@@ -296,49 +296,48 @@ const EstadoResultadosPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-slate-50 border-slate-200">
+      <Card className="bg-secondary/30 border-border">
         <CardHeader>
           <CardTitle>Resumen del Proceso de Cálculo</CardTitle>
           <CardDescription>Desarrollo numérico del estado de resultados</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 font-mono text-sm">
-            <div className="flex justify-between items-center p-3 bg-white rounded border">
+            <div className="flex justify-between items-center p-3 bg-secondary/40 rounded border border-border">
               <span>Ingresos</span>
-              <span className="font-bold text-green-600">{formatCurrency(totalIngresos)}</span>
+              <span className="font-bold text-primary">{formatCurrency(totalIngresos)}</span>
             </div>
-            <div className="flex justify-between items-center p-3 bg-white rounded border">
+            <div className="flex justify-between items-center p-3 bg-secondary/40 rounded border border-border">
               <span>(-) Costos de Ventas</span>
-              <span className="font-bold text-red-600">({formatCurrency(totalCostos)})</span>
+              <span className="font-bold text-destructive">({formatCurrency(totalCostos)})</span>
             </div>
-            <div className="border-t-2 border-slate-300 my-2"></div>
-            <div className="flex justify-between items-center p-3 bg-green-100 rounded border border-green-300">
+            <div className="border-t-2 border-border my-2"></div>
+            <div className="flex justify-between items-center p-3 glass rounded border border-green-500/30">
               <span className="font-semibold">(=) Utilidad Bruta</span>
-              <span className="font-bold text-green-700">{formatCurrency(utilidadBruta)}</span>
+              <span className="font-bold text-green-400">{formatCurrency(utilidadBruta)}</span>
             </div>
             <div className="text-xs text-muted-foreground ml-4">
               {formatCurrency(totalIngresos)} - {formatCurrency(totalCostos)} = {formatCurrency(utilidadBruta)}
             </div>
-            
-            <div className="flex justify-between items-center p-3 bg-white rounded border mt-4">
+
+            <div className="flex justify-between items-center p-3 bg-secondary/40 rounded border border-border mt-4">
               <span>(-) Gastos Operacionales</span>
-              <span className="font-bold text-red-600">({formatCurrency(totalGastos)})</span>
+              <span className="font-bold text-destructive">({formatCurrency(totalGastos)})</span>
             </div>
-            <div className="border-t-2 border-slate-300 my-2"></div>
-            <div className="flex justify-between items-center p-3 bg-blue-100 rounded border border-blue-300">
+            <div className="border-t-2 border-border my-2"></div>
+            <div className="flex justify-between items-center p-3 glass rounded border border-blue-500/30">
               <span className="font-semibold">(=) Utilidad Operacional</span>
-              <span className="font-bold text-blue-700">{formatCurrency(utilidadOperacional)}</span>
+              <span className="font-bold text-blue-400">{formatCurrency(utilidadOperacional)}</span>
             </div>
             <div className="text-xs text-muted-foreground ml-4">
               {formatCurrency(utilidadBruta)} - {formatCurrency(totalGastos)} = {formatCurrency(utilidadOperacional)}
             </div>
-            
-            <div className="border-t-4 border-slate-400 my-4"></div>
-            <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg border-2 border-purple-300">
+
+            <div className="border-t-4 border-border my-4"></div>
+            <div className="flex justify-between items-center p-4 glass rounded-lg border-2 border-primary/50">
               <span className="font-bold text-lg">(=) UTILIDAD NETA DEL PERÍODO</span>
-              <span className={`font-bold text-2xl ${
-                utilidadNeta >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <span className={`font-bold text-2xl ${utilidadNeta >= 0 ? 'text-primary' : 'text-destructive'
+                }`}>
                 {formatCurrency(utilidadNeta)}
               </span>
             </div>

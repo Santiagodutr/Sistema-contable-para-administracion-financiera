@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Calculator, Calendar, FileSpreadsheet } from 'lucide-react'
+import Calculator from 'lucide-react/dist/esm/icons/calculator'
+import Calendar from 'lucide-react/dist/esm/icons/calendar'
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
 import { formatCurrency } from '@/lib/utils'
 import * as XLSX from 'xlsx'
 
@@ -34,19 +36,19 @@ const DepreciacionPage = () => {
   const [tablaSumaDigitos, setTablaSumaDigitos] = useState<RegistroDepreciacion[]>([])
   const [tablaTasaFija, setTablaTasaFija] = useState<RegistroDepreciacion[]>([])
   const [tasaCalculada, setTasaCalculada] = useState<number>(0)
-  
+
   // Estados para fechas en línea recta
   const [usarDiasLR, setUsarDiasLR] = useState(false)
   const [fechaInicioLR, setFechaInicioLR] = useState('')
   const [fechaFinLR, setFechaFinLR] = useState('')
   const [diasLR, setDiasLR] = useState(0)
-  
+
   // Estados para fechas en suma de dígitos
   const [usarDiasSD, setUsarDiasSD] = useState(false)
   const [fechaInicioSD, setFechaInicioSD] = useState('')
   const [fechaFinSD, setFechaFinSD] = useState('')
   const [diasSD, setDiasSD] = useState(0)
-  
+
   // Estados para fechas en tasa fija
   const [usarDiasTF, setUsarDiasTF] = useState(false)
   const [fechaInicioTF, setFechaInicioTF] = useState('')
@@ -87,7 +89,7 @@ const DepreciacionPage = () => {
   const calcularTasaDepreciacion = (valorInicial: number, valorResidual: number, vidaUtil: number): number => {
     if (valorInicial <= 0 || valorResidual < 0 || vidaUtil <= 0) return 0
     if (valorResidual >= valorInicial) return 0
-    
+
     // Fórmula: Tasa = 1 - (Valor Residual / Valor Inicial)^(1/Vida Útil)
     const tasa = 1 - Math.pow(valorResidual / valorInicial, 1 / vidaUtil)
     return tasa * 100 // Convertir a porcentaje
@@ -106,36 +108,36 @@ const DepreciacionPage = () => {
     if (!inicio || !fin) return 0
     const fecha1 = new Date(inicio)
     const fecha2 = new Date(fin)
-    
+
     // Método contable: 30 días por mes, 360 días por año
     const anio1 = fecha1.getFullYear()
     const mes1 = fecha1.getMonth() + 1
     const dia1 = fecha1.getDate()
-    
+
     const anio2 = fecha2.getFullYear()
     const mes2 = fecha2.getMonth() + 1
     const dia2 = fecha2.getDate()
-    
+
     // Calcular diferencia en años, meses y días
     let anios = anio2 - anio1
     let meses = mes2 - mes1
     let dias = dia2 - dia1 + 1 // +1 para incluir el primer día
-    
+
     // Ajustar si los días son negativos
     if (dias <= 0) {
       meses--
       dias += 30
     }
-    
+
     // Ajustar si los meses son negativos
     if (meses < 0) {
       anios--
       meses += 12
     }
-    
+
     // Convertir todo a días (método 30/360)
     const totalDias = (anios * 360) + (meses * 30) + dias
-    
+
     return totalDias > 0 ? totalDias : 0
   }
 
@@ -148,7 +150,7 @@ const DepreciacionPage = () => {
       const depreciacionDiaria = depreciacionAnual / 360
       const depreciacionTotal = depreciacionDiaria * diasLR
       const valorLibrosFinal = data.valorInicial - depreciacionTotal
-      
+
       setTablaLineaRecta([{
         periodo: 1,
         depreciacionPeriodo: depreciacionTotal,
@@ -182,18 +184,18 @@ const DepreciacionPage = () => {
       // Dividir los días en años completos (360 días) y días restantes
       const aniosCompletos = Math.floor(diasSD / 360)
       const diasRestantes = diasSD % 360
-      
+
       const tabla: RegistroDepreciacion[] = []
       let depreciacionAcum = 0
       let valorLibrosActual = data.valorInicial
-      
+
       // Calcular años completos
       for (let i = 1; i <= aniosCompletos; i++) {
         const factor = (data.vidaUtil - i + 1) / sumaDigitos
         const depreciacionPeriodo = valorDepreciable * factor
         depreciacionAcum += depreciacionPeriodo
         valorLibrosActual = data.valorInicial - depreciacionAcum
-        
+
         tabla.push({
           periodo: i,
           depreciacionPeriodo,
@@ -201,7 +203,7 @@ const DepreciacionPage = () => {
           valorLibros: valorLibrosActual,
         })
       }
-      
+
       // Calcular días restantes si existen
       if (diasRestantes > 0 && aniosCompletos < data.vidaUtil) {
         const factor = (data.vidaUtil - aniosCompletos) / sumaDigitos
@@ -210,7 +212,7 @@ const DepreciacionPage = () => {
         const depreciacionPeriodo = depreciacionDiaria * diasRestantes
         depreciacionAcum += depreciacionPeriodo
         valorLibrosActual = data.valorInicial - depreciacionAcum
-        
+
         tabla.push({
           periodo: aniosCompletos + 1,
           depreciacionPeriodo,
@@ -218,7 +220,7 @@ const DepreciacionPage = () => {
           valorLibros: valorLibrosActual,
         })
       }
-      
+
       setTablaSumaDigitos(tabla)
       return
     }
@@ -249,50 +251,50 @@ const DepreciacionPage = () => {
       // Dividir los días en años completos (360 días) y días restantes
       const aniosCompletos = Math.floor(diasTF / 360)
       const diasRestantes = diasTF % 360
-      
+
       const tabla: RegistroDepreciacion[] = []
       let valorLibros = data.valorInicial
       let depreciacionAcum = 0
-      
+
       // Calcular años completos
       for (let i = 1; i <= aniosCompletos; i++) {
         let depreciacionPeriodo = valorLibros * tasa
-        
+
         // No depreciar por debajo del valor residual
         if (valorLibros - depreciacionPeriodo < data.valorResidual) {
           depreciacionPeriodo = valorLibros - data.valorResidual
         }
-        
+
         depreciacionAcum += depreciacionPeriodo
         valorLibros -= depreciacionPeriodo
-        
+
         tabla.push({
           periodo: i,
           depreciacionPeriodo,
           depreciacionAcumulada: depreciacionAcum,
           valorLibros,
         })
-        
+
         // Si ya llegamos al valor residual, detener
         if (valorLibros <= data.valorResidual) {
           break
         }
       }
-      
+
       // Calcular días restantes si existen y no hemos llegado al valor residual
       if (diasRestantes > 0 && valorLibros > data.valorResidual && aniosCompletos < data.vidaUtil) {
         const depreciacionAnual = valorLibros * tasa
         const depreciacionDiaria = depreciacionAnual / 360
         let depreciacionPeriodo = depreciacionDiaria * diasRestantes
-        
+
         // No depreciar por debajo del valor residual
         if (valorLibros - depreciacionPeriodo < data.valorResidual) {
           depreciacionPeriodo = valorLibros - data.valorResidual
         }
-        
+
         depreciacionAcum += depreciacionPeriodo
         valorLibros -= depreciacionPeriodo
-        
+
         tabla.push({
           periodo: aniosCompletos + 1,
           depreciacionPeriodo,
@@ -300,7 +302,7 @@ const DepreciacionPage = () => {
           valorLibros,
         })
       }
-      
+
       setTablaTasaFija(tabla)
       return
     }
@@ -362,7 +364,7 @@ const DepreciacionPage = () => {
       if (usarDiasLR && diasLR > 0) {
         const aniosCompletos = Math.floor(diasLR / 360)
         const diasRestantes = diasLR % 360
-        
+
         if (registro.periodo <= aniosCompletos) {
           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
           labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
@@ -409,7 +411,7 @@ const DepreciacionPage = () => {
       if (usarDiasSD && diasSD > 0) {
         const aniosCompletos = Math.floor(diasSD / 360)
         const diasRestantes = diasSD % 360
-        
+
         if (registro.periodo <= aniosCompletos) {
           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
           labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
@@ -456,7 +458,7 @@ const DepreciacionPage = () => {
       if (usarDiasTF && diasTF > 0) {
         const aniosCompletos = Math.floor(diasTF / 360)
         const diasRestantes = diasTF % 360
-        
+
         if (registro.periodo <= aniosCompletos) {
           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
           labelPeriodo = registro.periodo <= 10 ? `${ordenales[registro.periodo]} año` : `${registro.periodo}º año`
@@ -587,7 +589,7 @@ const DepreciacionPage = () => {
                   </div>
 
                   {usarDiasLR && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-secondary/30 rounded-lg border border-border">
                       <div className="space-y-2">
                         <Label>Fecha de Inicio</Label>
                         <div className="relative">
@@ -625,7 +627,7 @@ const DepreciacionPage = () => {
                       </div>
 
                       {diasLR > 0 && (
-                        <div className="md:col-span-2 p-3 bg-white rounded border border-blue-200">
+                        <div className="md:col-span-2 p-3 bg-background/50 rounded border border-border">
                           <p className="text-sm font-medium text-blue-900">
                             Período: <span className="text-lg font-bold">{diasLR}</span> días (método 30/360)
                           </p>
@@ -769,7 +771,7 @@ const DepreciacionPage = () => {
                   </div>
 
                   {usarDiasSD && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-secondary/30 rounded-lg border border-border">
                       <div className="space-y-2">
                         <Label>Fecha de Inicio</Label>
                         <div className="relative">
@@ -807,7 +809,7 @@ const DepreciacionPage = () => {
                       </div>
 
                       {diasSD > 0 && (
-                        <div className="md:col-span-2 p-3 bg-white rounded border border-blue-200">
+                        <div className="md:col-span-2 p-3 bg-background/50 rounded border border-border">
                           <p className="text-sm font-medium text-blue-900">
                             Período: <span className="text-lg font-bold">{diasSD}</span> días (método 30/360)
                           </p>
@@ -855,28 +857,28 @@ const DepreciacionPage = () => {
                       if (usarDiasSD && diasSD > 0) {
                         const aniosCompletos = Math.floor(diasSD / 360)
                         const diasRestantes = diasSD % 360
-                        
+
                         if (registro.periodo <= aniosCompletos) {
                           // Años completos
                           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
-                          labelPeriodo = registro.periodo <= 10 
-                            ? `${ordenales[registro.periodo]} año` 
+                          labelPeriodo = registro.periodo <= 10
+                            ? `${ordenales[registro.periodo]} año`
                             : `${registro.periodo}º año`
                         } else {
                           // Último período con días restantes
                           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
-                          const label = registro.periodo <= 10 
-                            ? `${ordenales[registro.periodo]} año` 
+                          const label = registro.periodo <= 10
+                            ? `${ordenales[registro.periodo]} año`
                             : `${registro.periodo}º año`
                           labelPeriodo = `${label} (${diasRestantes} días)`
                         }
                       } else {
                         const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
-                        labelPeriodo = registro.periodo <= 10 
-                          ? `${ordenales[registro.periodo]} año` 
+                        labelPeriodo = registro.periodo <= 10
+                          ? `${ordenales[registro.periodo]} año`
                           : `${registro.periodo}º año`
                       }
-                      
+
                       return (
                         <TableRow key={registro.periodo}>
                           <TableCell className="font-medium">{labelPeriodo}</TableCell>
@@ -977,7 +979,7 @@ const DepreciacionPage = () => {
                       {...formTasaFija.register('tasaFija', { valueAsNumber: true })}
                       value={tasaCalculada.toFixed(10)}
                       readOnly
-                      className="bg-gray-50"
+                      className="bg-secondary/50"
                     />
                     {formTasaFija.formState.errors.tasaFija && (
                       <p className="text-sm text-red-500">{formTasaFija.formState.errors.tasaFija.message}</p>
@@ -1096,28 +1098,28 @@ const DepreciacionPage = () => {
                       if (usarDiasTF && diasTF > 0) {
                         const aniosCompletos = Math.floor(diasTF / 360)
                         const diasRestantes = diasTF % 360
-                        
+
                         if (registro.periodo <= aniosCompletos) {
                           // Años completos
                           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
-                          labelPeriodo = registro.periodo <= 10 
-                            ? `${ordenales[registro.periodo]} año` 
+                          labelPeriodo = registro.periodo <= 10
+                            ? `${ordenales[registro.periodo]} año`
                             : `${registro.periodo}º año`
                         } else {
                           // Último período con días restantes
                           const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
-                          const label = registro.periodo <= 10 
-                            ? `${ordenales[registro.periodo]} año` 
+                          const label = registro.periodo <= 10
+                            ? `${ordenales[registro.periodo]} año`
                             : `${registro.periodo}º año`
                           labelPeriodo = `${label} (${diasRestantes} días)`
                         }
                       } else {
                         const ordenales = ['', '1er', '2do', '3er', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo']
-                        labelPeriodo = registro.periodo <= 10 
-                          ? `${ordenales[registro.periodo]} año` 
+                        labelPeriodo = registro.periodo <= 10
+                          ? `${ordenales[registro.periodo]} año`
                           : `${registro.periodo}º año`
                       }
-                      
+
                       return (
                         <TableRow key={registro.periodo}>
                           <TableCell className="font-medium">{labelPeriodo}</TableCell>

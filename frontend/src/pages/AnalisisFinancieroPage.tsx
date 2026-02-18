@@ -109,42 +109,6 @@ const AnalisisFinancieroPage = () => {
 
   const totalVertical = datosVertical.reduce((acc, fila) => acc + fila.valor, 0)
 
-  const exportarHorizontalAExcel = (tabla: FilaHorizontal[], nombre: string) => {
-    const encabezados = ['Concepto']
-    for (let i = 0; i < numAnios; i++) {
-      encabezados.push(`Año ${i + 1}`)
-    }
-    for (let i = 1; i < numAnios; i++) {
-      encabezados.push(`Var. Absoluta ${i}-${i + 1}`)
-      encabezados.push(`Var. % ${i}-${i + 1}`)
-    }
-
-    const datos: any[] = [[nombre.toUpperCase()], [], encabezados]
-
-    tabla.forEach(fila => {
-      const filaData: any[] = [fila.concepto, ...fila.valores]
-      const variaciones = calcularVariaciones(fila.valores)
-      variaciones.forEach(v => {
-        filaData.push(v.absoluta, v.porcentual)
-      })
-      datos.push(filaData)
-    })
-
-    const totales = calcularTotalH(tabla)
-    const filaTotal: any[] = ['TOTAL', ...totales]
-    const variacionesTotales = calcularVariaciones(totales)
-    variacionesTotales.forEach(v => {
-      filaTotal.push(v.absoluta, v.porcentual)
-    })
-    datos.push(filaTotal)
-
-    const ws = XLSX.utils.aoa_to_sheet(datos)
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: encabezados.length - 1 } }]
-    
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, nombre)
-    XLSX.writeFile(wb, `${nombre.toLowerCase()}_horizontal.xlsx`)
-  }
 
   const exportarTodoAExcel = () => {
     const wb = XLSX.utils.book_new()

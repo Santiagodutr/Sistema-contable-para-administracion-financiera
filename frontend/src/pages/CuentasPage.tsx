@@ -10,14 +10,14 @@ import { formatCurrency } from '@/lib/utils'
 import * as XLSX from 'xlsx'
 
 const CuentasPage = () => {
-  const { cuentas, registrarMovimiento, calcularSaldo, eliminarMovimiento, editarMovimiento } = useCuentasStore()
-  
+  const { cuentas, registrarMovimiento, eliminarMovimiento, editarMovimiento } = useCuentasStore()
+
   // Nueva fila
   const [tipoCuenta, setTipoCuenta] = useState('')
   const [detalle, setDetalle] = useState('')
   const [tipoMovimiento, setTipoMovimiento] = useState<'debito' | 'credito'>('debito')
   const [monto, setMonto] = useState('')
-  
+
   // Estado de edición
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editTipoCuenta, setEditTipoCuenta] = useState('')
@@ -56,7 +56,7 @@ const CuentasPage = () => {
     setDetalle('')
     setMonto('')
   }
-  
+
   const iniciarEdicion = (mov: any) => {
     setEditandoId(mov.id)
     setEditTipoCuenta(mov.tipoCuenta)
@@ -64,33 +64,33 @@ const CuentasPage = () => {
     setEditTipoMovimiento(mov.tipo)
     setEditMonto(mov.monto.toString())
   }
-  
+
   const guardarEdicion = () => {
     if (!editandoId || !editTipoCuenta || !editDetalle || !editMonto) {
       alert('Complete todos los campos')
       return
     }
-    
+
     editarMovimiento(editTipoCuenta, editandoId, {
       tipo: editTipoMovimiento,
       monto: parseFloat(editMonto),
       descripcion: editDetalle,
       fecha: new Date(),
     })
-    
+
     setEditandoId(null)
   }
-  
+
   const cancelarEdicion = () => {
     setEditandoId(null)
   }
-  
+
   const handleEliminarMovimiento = (tipoCuenta: string, movimientoId: string) => {
     eliminarMovimiento(tipoCuenta, movimientoId)
   }
 
   const exportarAExcel = () => {
-    const todosMovimientos = cuentas.flatMap(cuenta => 
+    const todosMovimientos = cuentas.flatMap(cuenta =>
       cuenta.movimientos.map(mov => ({
         ...mov,
         tipoCuenta: cuenta.tipo,
@@ -101,7 +101,7 @@ const CuentasPage = () => {
     const totalDebito = todosMovimientos
       .filter(mov => mov.tipo === 'debito')
       .reduce((sum, mov) => sum + mov.monto, 0)
-    
+
     const totalCredito = todosMovimientos
       .filter(mov => mov.tipo === 'credito')
       .reduce((sum, mov) => sum + mov.monto, 0)
@@ -121,7 +121,7 @@ const CuentasPage = () => {
     ]
 
     const ws = XLSX.utils.aoa_to_sheet(datos)
-    
+
     // Ajustar anchos de columna
     ws['!cols'] = [
       { wch: 20 },
@@ -173,7 +173,7 @@ const CuentasPage = () => {
             <CardContent>
               {(() => {
                 // Obtener todos los movimientos de todas las cuentas
-                const todosMovimientos = cuentas.flatMap(cuenta => 
+                const todosMovimientos = cuentas.flatMap(cuenta =>
                   cuenta.movimientos.map(mov => ({
                     ...mov,
                     tipoCuenta: cuenta.tipo,
@@ -185,13 +185,10 @@ const CuentasPage = () => {
                 const totalDebito = todosMovimientos
                   .filter(mov => mov.tipo === 'debito')
                   .reduce((sum, mov) => sum + mov.monto, 0)
-                
+
                 const totalCredito = todosMovimientos
                   .filter(mov => mov.tipo === 'credito')
                   .reduce((sum, mov) => sum + mov.monto, 0)
-
-                const diferencia = Math.abs(totalDebito - totalCredito)
-                const balanceado = diferencia < 0.01
 
                 return (
                   <Table>
@@ -266,10 +263,10 @@ const CuentasPage = () => {
                           </Button>
                         </TableCell>
                       </TableRow>
-                      
+
                       {todosMovimientos.map((mov) => {
                         const esEdicion = editandoId === mov.id
-                        
+
                         return (
                           <TableRow key={mov.id}>
                             <TableCell>
@@ -393,7 +390,7 @@ const CuentasPage = () => {
                           </TableRow>
                         )
                       })}
-                      
+
                       {/* Fila de totales */}
                       <TableRow className="bg-primary/10 font-bold border-t-2">
                         <TableCell colSpan={2} className="text-right">TOTALES</TableCell>
@@ -409,7 +406,7 @@ const CuentasPage = () => {
                   </Table>
                 )
               })()}
-              
+
               {/* Mensaje de verificación de balance */}
               {cuentas.length > 0 && (() => {
                 const todosMovimientos = cuentas.flatMap(cuenta => cuenta.movimientos)
@@ -421,11 +418,10 @@ const CuentasPage = () => {
                   .reduce((sum, mov) => sum + mov.monto, 0)
                 const diferencia = Math.abs(totalDebito - totalCredito)
                 const balanceado = diferencia < 0.01
-                
+
                 return (
-                  <div className={`mt-4 p-4 rounded-lg flex items-center gap-2 ${
-                    balanceado ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
-                  }`}>
+                  <div className={`mt-4 p-4 rounded-lg flex items-center gap-2 ${balanceado ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+                    }`}>
                     {balanceado ? (
                       <>
                         <Check className="h-5 w-5" />
