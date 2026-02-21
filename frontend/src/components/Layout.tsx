@@ -44,7 +44,16 @@ const Layout = ({ children }: LayoutProps) => {
 
         <footer className="border-t border-border/40 py-4 px-6 lg:px-8">
           <p className="text-xs text-muted-foreground text-center">
-            © 2025 Sistema de Gestión Contable · Todos los derechos reservados
+            © 2025 Sistema de Gestión Contable · Todos los derechos reservados ·{" "}
+            Desarrollado por{" "}
+            <a
+              href="https://portafolio-santiago-duarte.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-primary transition-colors"
+            >
+              Santiago Duarte
+            </a>
           </p>
         </footer>
       </div>
